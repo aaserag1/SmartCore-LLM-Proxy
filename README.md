@@ -1,57 +1,177 @@
-# 🚀 Multi-LLM API Load Balancer & Fallback Router
-**Developed by: Ahmed Adel (Abo Adel)**
+# SmartCore LLM Proxy
 
-A robust, lightweight, and open-source load balancer designed for backend developers to bypass AI API Rate Limits seamlessly. 
+[![CI](https://github.com/aaserag1/SmartCore-LLM-Proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/aaserag1/SmartCore-LLM-Proxy/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)](https://www.python.org/)
 
-## 📌 Overview
-When building heavy backend systems or ERPs, hitting API rate limits on language models can crash your operations. This tool sets up a **Local Gateway** using `LiteLLM` that aggregates multiple API keys (e.g., Google Gemini, DeepSeek, Anthropic) and provides automatic fallback routing and latency-based load balancing. 
+An OpenAI-compatible local gateway that routes LLM requests through LiteLLM, retries transient failures, and falls back from Gemini to DeepSeek without changing your application's API integration.
 
-If your primary model hits a rate limit (429) or experiences downtime, requests are instantly routed to the next available model with automatic cooldown periods, ensuring **100% system uptime**.
+> اقرأ [الدليل العربي](README.ar.md).
 
-## ✨ Key Features
-* **Zero Downtime:** Automatic fallback routing and retry mechanism keep your application running smoothly.
-* **Smart Cooldown & Retries:** Automatically puts rate-limited models on a 60-second cooldown period before retrying.
-* **Cost Efficiency:** Combine multiple free-tier API keys into a single, highly available endpoint.
-* **Plug & Play:** Easily integrates with any UI (like Hermes AI) or custom backend code.
-* **One-Click Startup:** Includes a Batch script (`Run_LiteLLM.bat`) for instant local server deployment.
+## Why SmartCore?
 
-## ⚙️ Prerequisites
-* **Python 3.8+** installed on your system.
+- One OpenAI-compatible endpoint for Hermes AI, Open WebUI, scripts, and backend services.
+- Automatic retries, cooldowns, and provider fallback.
+- Provider credentials are read from environment variables, never stored in the tracked configuration.
+- Localhost-only defaults and gateway authentication.
+- Windows, macOS, Linux, and Docker Compose launch options.
+- Configuration validation and GitHub Actions checks for safer contributions.
 
-## 🛠️ Step-by-Step Setup Guide
+SmartCore improves resilience, but it cannot guarantee uptime: availability still depends on your network, provider accounts, quotas, and the models you configure.
 
-### Step 1: Install Dependencies
-Open your terminal (CMD or PowerShell) and run the following command to install the required proxy library:
+## Quick start
 
-```bash
-pip install "litellm[proxy]"
-```
-
-### Step 2: Configure Your API Keys
-1. Open `config.yaml` in any text editor.
-2. Replace placeholder values (e.g., `"YOUR_GOOGLE_KEY_HERE"`, `"YOUR_DEEPSEEK_KEY_HERE"`) with your actual API keys.
-3. Adjust fallbacks and routing rules if desired.
-4. Save the file.
-
-> ⚠️ **SECURITY WARNING:** NEVER commit or upload your `config.yaml` with live API keys to public repositories.
-
-### Step 3: Run the Local Gateway
-Double-click `Run_LiteLLM.bat` or run:
+### 1. Clone and install
 
 ```bash
-python -m litellm --config config.yaml --port 4000 --host 127.0.0.1
+git clone https://github.com/aaserag1/SmartCore-LLM-Proxy.git
+cd SmartCore-LLM-Proxy
+python -m venv .venv
 ```
 
-A command window will open, starting the proxy server at:
-`http://127.0.0.1:4000`
+Activate the environment:
 
-Keep this window running while using your application.
+```bash
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
 
-### Step 4: Connect Your Application (e.g. Hermes AI)
-1. Go to your application's API or Gateway settings.
-2. Set the **BASE URL** / **GATEWAY PROXY URL** to:
-   `http://127.0.0.1:4000`
-3. Enjoy uninterrupted model switching!
+# macOS / Linux
+source .venv/bin/activate
+```
 
----
-*Developed by Ahmed Adel (Abo Adel)*
+Install the pinned dependency:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+### 2. Configure secrets
+
+Copy the example file:
+
+```bash
+# Windows PowerShell
+Copy-Item .env.example .env
+
+# macOS / Linux
+cp .env.example .env
+```
+
+Fill in:
+
+- `GEMINI_API_KEY`: your Google AI Studio API key.
+- `DEEPSEEK_API_KEY`: your DeepSeek API key.
+- `LITELLM_MASTER_KEY`: a private gateway key beginning with `sk-`.
+
+Generate a strong gateway key with:
+
+```bash
+python -c "import secrets; print('sk-' + secrets.token_urlsafe(32))"
+```
+
+The tracked [`config.yaml`](config.yaml) contains only environment-variable references. Never commit `.env` or real credentials.
+
+### 3. Validate and run
+
+```bash
+python scripts/start_proxy.py --check-only
+python scripts/start_proxy.py
+```
+
+Platform shortcuts are also available:
+
+```powershell
+# Windows
+.\Run_LiteLLM.bat
+# or
+.\run.ps1
+```
+
+```bash
+# macOS / Linux
+./run.sh
+```
+
+The default endpoint is `http://127.0.0.1:4000/v1`.
+
+### 4. Connect a client
+
+Use these values in Hermes AI or another OpenAI-compatible client:
+
+| Setting | Value |
+| --- | --- |
+| Base URL | `http://127.0.0.1:4000/v1` |
+| API key | The value of `LITELLM_MASTER_KEY` |
+| Model | `smart-core` |
+
+Test the gateway:
+
+```bash
+curl http://127.0.0.1:4000/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_LITELLM_MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"smart-core","messages":[{"role":"user","content":"Hello!"}]}'
+```
+
+`smart-core` uses Gemini 2.5 Flash first. After retryable failures, LiteLLM falls back to `deepseek-chat`.
+
+## Docker Compose
+
+Docker Compose uses the same `.env` and `config.yaml`:
+
+```bash
+docker compose up -d
+docker compose ps
+docker compose logs -f smartcore
+```
+
+Stop it with:
+
+```bash
+docker compose down
+```
+
+The container port is published only on `127.0.0.1` by default.
+
+## Customize routing
+
+Edit `config.yaml` to add a provider or deployment. Keep every credential as an `os.environ/VARIABLE_NAME` reference.
+
+Deployments sharing the same `model_name` form a load-balanced pool. A different model group can be placed in `router_settings.fallbacks`. Run this after every change:
+
+```bash
+python scripts/check_config.py config.yaml
+```
+
+Use `--check-env` to also verify that all referenced variables are populated:
+
+```bash
+python scripts/check_config.py config.yaml --env-file .env --check-env
+```
+
+See the [LiteLLM provider documentation](https://docs.litellm.ai/docs/providers) for supported provider prefixes and parameters.
+
+## Security notes
+
+- Keep the default `127.0.0.1` host unless you intentionally add TLS, firewall rules, and proper access controls.
+- Do not reuse a provider API key as `LITELLM_MASTER_KEY`.
+- Rotate any key that has been printed, committed, or shared accidentally.
+- Dependencies and the Docker image are pinned intentionally. Review release notes before upgrading them.
+- Read [SECURITY.md](SECURITY.md) before reporting a vulnerability.
+
+## Contributing
+
+Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), follow the [Code of Conduct](CODE_OF_CONDUCT.md), and run:
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m unittest discover -s tests -v
+python scripts/check_config.py config.yaml
+```
+
+## License
+
+Released under the [MIT License](LICENSE).
+
+Created by Ahmed Adel (Abo Adel) and open to community contributions.

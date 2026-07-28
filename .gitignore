@@ -1,13 +1,29 @@
-# Security & Config
-*.env
-.env.local
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
 
 # Python
+.venv/
+venv/
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+.coverage
+htmlcov/
 
-# IDEs & System
+# LiteLLM runtime data
+litellm_uuid.txt
+*.db
+*.sqlite
+*.sqlite3
+
+# IDEs and operating systems
 .vscode/
 .idea/
 .DS_Store

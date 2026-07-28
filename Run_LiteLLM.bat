@@ -1,21 +1,30 @@
 @echo off
-title Multi-LLM Gateway - By Ahmed Adel
-echo =======================================================
-echo    Starting Multi-LLM API Load Balancer...
-echo    Developed by: Ahmed Adel 
-echo =======================================================
-echo.
-echo Starting LiteLLM Proxy Server on http://127.0.0.1:4000 ...
-echo Press Ctrl+C to stop the server.
-echo.
+setlocal
+pushd "%~dp0"
 
-python -m litellm --config config.yaml --port 4000 --host 127.0.0.1
-
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Failed to start LiteLLM. 
-    echo Please make sure you ran: pip install "litellm[proxy]"
-    echo and config.yaml exists in the current directory.
+set "SMARTCORE_PYTHON=python"
+set "SMARTCORE_PYTHON_ARGS="
+python --version >nul 2>nul
+if errorlevel 1 (
+    set "SMARTCORE_PYTHON=%LocalAppData%\Programs\Python\Launcher\py.exe"
+    set "SMARTCORE_PYTHON_ARGS=-3"
 )
 
-pause
+if not "%SMARTCORE_PYTHON%"=="python" if not exist "%SMARTCORE_PYTHON%" (
+    echo [ERROR] Python was not found.
+    echo Install Python 3.10 or newer, then try again.
+    popd
+    exit /b 1
+)
+
+"%SMARTCORE_PYTHON%" %SMARTCORE_PYTHON_ARGS% scripts\start_proxy.py %*
+set "SMARTCORE_EXIT_CODE=%errorlevel%"
+
+if not "%SMARTCORE_EXIT_CODE%"=="0" (
+    echo.
+    echo [ERROR] SmartCore could not start. Review the message above.
+    pause
+)
+
+popd
+exit /b %SMARTCORE_EXIT_CODE%

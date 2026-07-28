@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/aaserag1/SmartCore-LLM-Proxy/security
+    about: Review the security policy and use private reporting when available.
+  - name: LiteLLM documentation
+    url: https://docs.litellm.ai/
+    about: Check upstream provider and proxy behavior.

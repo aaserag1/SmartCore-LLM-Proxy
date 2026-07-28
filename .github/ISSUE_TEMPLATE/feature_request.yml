@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose an improvement for SmartCore
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem or user need should this change address?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior and an example workflow.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds or other designs have you considered?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Provider configuration
+        - Routing and fallback
+        - Security
+        - Docker
+        - Windows
+        - macOS/Linux
+        - Documentation
+        - Other
+    validations:
+      required: true

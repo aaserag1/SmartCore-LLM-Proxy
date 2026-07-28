@@ -1,23 +1,22 @@
 model_list:
-  - model_name: gemini-1.5-pro
+  - model_name: smart-core
     litellm_params:
-      model: gemini/gemini-1.5-pro
-      api_key: "YOUR_GOOGLE_KEY_HERE"
+      model: gemini/gemini-2.5-flash
+      api_key: os.environ/GEMINI_API_KEY
 
-  - model_name: gemini-1.5-flash
-    litellm_params:
-      model: gemini/gemini-1.5-flash
-      api_key: "YOUR_GOOGLE_KEY_HERE"
-
-  - model_name: deepseek-coder
+  - model_name: deepseek-chat
     litellm_params:
       model: deepseek/deepseek-chat
-      api_key: "YOUR_DEEPSEEK_KEY_HERE"
+      api_key: os.environ/DEEPSEEK_API_KEY
 
 router_settings:
-  routing_strategy: "latency-based-routing"
-  num_retries: 3
+  routing_strategy: simple-shuffle
+  num_retries: 2
   allowed_fails: 2
   cooldown_time: 60
-  fallbacks: 
-    - gemini-1.5-pro: ["gemini-1.5-flash", "deepseek-coder"]
+  fallbacks:
+    - smart-core:
+        - deepseek-chat
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
