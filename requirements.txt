@@ -1,2 +1,2 @@
 # Keep this version pinned. Review LiteLLM release notes and security notices before updating.
-litellm[proxy]==1.93.0
+litellm[proxy]==1.94.1
