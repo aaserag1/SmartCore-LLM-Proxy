@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from check_config import (  # noqa: E402
     load_env_file,
+    parse_env_file,
     read_config,
     validate_config,
 )
@@ -65,6 +66,29 @@ class ConfigValidationTests(unittest.TestCase):
             sum("missing or empty" in error for error in errors),
             3,
         )
+
+    def test_parse_env_file_returns_empty_mapping_for_missing_or_comment_only_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            self.assertEqual(parse_env_file(directory_path / "missing.env"), {})
+
+            env_path = directory_path / ".env"
+            env_path.write_text("\n # comment\n\t# another comment\n", encoding="utf-8")
+            self.assertEqual(parse_env_file(env_path), {})
+
+    def test_parse_env_file_rejects_missing_equals_and_invalid_names(self) -> None:
+        cases = [
+            ("NO_VALUE\n", "expected KEY=VALUE"),
+            ("1INVALID=value\n", "invalid variable name '1INVALID'"),
+            ("export =value\n", "invalid variable name ''"),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            env_path = Path(directory) / ".env"
+            for content, message in cases:
+                with self.subTest(content=content):
+                    env_path.write_text(content, encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, rf"{env_path}:1: {message}"):
+                        parse_env_file(env_path)
 
     def test_env_loader_supports_export_quotes_and_preserves_process_values(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
