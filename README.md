@@ -7,7 +7,7 @@
 
 An OpenAI-compatible local gateway that routes LLM requests through LiteLLM, retries transient failures, and falls back from Gemini to DeepSeek without changing your application's API integration.
 
-> اقرأ [الدليل العربي](https://github.com/aaserag1/SmartCore-LLM-Proxy/blob/main/README.ar.md).
+> اقرأ [الدليل العربي](https://github.com/aaserag1/SmartCore-LLM-Proxy/blob/main/READMEar.md).
 
 ## Architecture & Routing Flow
 
