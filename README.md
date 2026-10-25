@@ -1,20 +1,45 @@
 # SmartCore LLM Proxy
 
-[![CI](https://github.com/aaserag1/SmartCore-LLM-Proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/aaserag1/SmartCore-LLM-Proxy/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)](https://www.python.org/)
+[](https://github.com/aaserag1/SmartCore-LLM-Proxy/actions/workflows/ci.yml)
+[License: MIT](https://www.google.com/search?q=LICENSE)
+[](https://www.python.org/)
+[PRs Welcome](https://www.google.com/search?q=CONTRIBUTING.md)
 
 An OpenAI-compatible local gateway that routes LLM requests through LiteLLM, retries transient failures, and falls back from Gemini to DeepSeek without changing your application's API integration.
 
-> اقرأ [الدليل العربي](README.ar.md).
+> اقرأ [الدليل العربي](https://www.google.com/search?q=README.ar.md).
+
+## Architecture & Routing Flow
+
+```mermaid
+flowchart LR
+    Client["Client App\n(Hermes AI / Open WebUI / Cline / SDK)"]
+    Gateway["SmartCore Gateway\nhttp://127.0.0.1:4000/v1"]
+
+    subgraph FastRoute ["Model: smart-core"]
+        GFlash["Primary: Gemini 2.5 Flash"]
+        DSChat["Fallback: DeepSeek Chat"]
+        GFlash -->|"Retry / Timeout / 429"| DSChat
+    end
+
+    subgraph ReasonRoute ["Model: smart-reasoning"]
+        GPro["Primary: Gemini 2.5 Pro"]
+        DSReason["Fallback: DeepSeek Reasoner"]
+        GPro -->|"Retry / Timeout / 429"| DSReason
+    end
+
+    Client -->|"Bearer LITELLM_MASTER_KEY"| Gateway
+    Gateway --> FastRoute
+    Gateway --> ReasonRoute
+```
 
 ## Why SmartCore?
 
-- One OpenAI-compatible endpoint for Hermes AI, Open WebUI, scripts, and backend services.
-- Automatic retries, cooldowns, and provider fallback.
+- One OpenAI-compatible endpoint for Hermes AI, Open WebUI, Cline, Continue.dev, scripts, and backend services.
+- Automatic retries, request timeouts, context-window fallbacks, and provider fallback (`smart-core` for fast chat, `smart-reasoning` for deep reasoning).
 - Provider credentials are read from environment variables, never stored in the tracked configuration.
-- Localhost-only defaults and gateway authentication.
-- Windows, macOS, Linux, and Docker Compose launch options.
+- Localhost-only defaults, one-command `.env` initialization (`--init`), and built-in gateway diagnostics (`--doctor`).
+- Windows, macOS, Linux, and Docker Compose launch options with synchronized LiteLLM versions.
 - Configuration validation and GitHub Actions checks for safer contributions.
 
 SmartCore improves resilience, but it cannot guarantee uptime: availability still depends on your network, provider accounts, quotas, and the models you configure.
@@ -48,35 +73,32 @@ python -m pip install -r requirements.txt
 
 ### 2. Configure secrets
 
-Copy the example file:
+Initialize `.env` automatically (creates `.env` from `.env.example` and generates a secure `LITELLM_MASTER_KEY`):
 
 ```bash
-# Windows PowerShell
-Copy-Item .env.example .env
-
-# macOS / Linux
-cp .env.example .env
+python scripts/start_proxy.py --init
 ```
 
-Fill in:
+Then open `.env` and fill in your provider keys:
 
 - `GEMINI_API_KEY`: your Google AI Studio API key.
 - `DEEPSEEK_API_KEY`: your DeepSeek API key.
-- `LITELLM_MASTER_KEY`: a private gateway key beginning with `sk-`.
+- `LITELLM_MASTER_KEY`: auto-generated private gateway key beginning with `sk-`.
 
-Generate a strong gateway key with:
+The tracked [config.yaml](https://www.google.com/search?q=config.yaml) contains only environment-variable references. Never commit `.env` or real credentials.
 
-```bash
-python -c "import secrets; print('sk-' + secrets.token_urlsafe(32))"
-```
-
-The tracked [`config.yaml`](config.yaml) contains only environment-variable references. Never commit `.env` or real credentials.
-
-### 3. Validate and run
+### 3. Validate, diagnose, and run
 
 ```bash
 python scripts/start_proxy.py --check-only
+python scripts/start_proxy.py --doctor
 python scripts/start_proxy.py
+```
+
+If you only have one provider key configured so far, you can start in partial-provider mode:
+
+```bash
+python scripts/start_proxy.py --allow-partial-providers
 ```
 
 Platform shortcuts are also available:
@@ -95,15 +117,15 @@ Platform shortcuts are also available:
 
 The default endpoint is `http://127.0.0.1:4000/v1`.
 
-### 4. Connect a client
+### 4. Connect a client (Hermes AI, Open WebUI, Cline, Continue)
 
-Use these values in Hermes AI or another OpenAI-compatible client:
+Use these values in any OpenAI-compatible client:
 
 | Setting | Value |
 | --- | --- |
 | Base URL | `http://127.0.0.1:4000/v1` |
 | API key | The value of `LITELLM_MASTER_KEY` |
-| Model | `smart-core` |
+| Model | `smart-core` (fast) or `smart-reasoning` (deep reasoning) |
 
 Test the gateway:
 
@@ -114,7 +136,10 @@ curl http://127.0.0.1:4000/v1/chat/completions \
   -d '{"model":"smart-core","messages":[{"role":"user","content":"Hello!"}]}'
 ```
 
-`smart-core` uses Gemini 2.5 Flash first. After retryable failures, LiteLLM falls back to `deepseek-chat`.
+| Model Group | Primary Model | Fallback Model | Use Case |
+| --- | --- | --- | --- |
+| `smart-core` | `gemini/gemini-2.5-flash` | `deepseek/deepseek-chat` | Fast everyday chat & coding |
+| `smart-reasoning` | `gemini/gemini-2.5-pro` | `deepseek/deepseek-reasoner` | Complex analysis & reasoning |
 
 ## Docker Compose
 
@@ -134,20 +159,21 @@ docker compose down
 
 The container port is published only on `127.0.0.1` by default.
 
-## Customize routing
+## Customize routing & diagnostics
 
 Edit `config.yaml` to add a provider or deployment. Keep every credential as an `os.environ/VARIABLE_NAME` reference.
 
-Deployments sharing the same `model_name` form a load-balanced pool. A different model group can be placed in `router_settings.fallbacks`. Run this after every change:
+Deployments sharing the same `model_name` form a load-balanced pool. A different model group can be placed in `router_settings.fallbacks` or `router_settings.context_window_fallbacks`. Run this after every change:
 
 ```bash
 python scripts/check_config.py config.yaml
 ```
 
-Use `--check-env` to also verify that all referenced variables are populated:
+Use `--check-env` to also verify that all referenced variables are populated, or run the doctor script to inspect config, environment secrets, and live gateway endpoints:
 
 ```bash
 python scripts/check_config.py config.yaml --env-file .env --check-env
+python scripts/doctor.py
 ```
 
 See the [LiteLLM provider documentation](https://docs.litellm.ai/docs/providers) for supported provider prefixes and parameters.
@@ -157,12 +183,12 @@ See the [LiteLLM provider documentation](https://docs.litellm.ai/docs/providers)
 - Keep the default `127.0.0.1` host unless you intentionally add TLS, firewall rules, and proper access controls.
 - Do not reuse a provider API key as `LITELLM_MASTER_KEY`.
 - Rotate any key that has been printed, committed, or shared accidentally.
-- Dependencies and the Docker image are pinned intentionally. Review release notes before upgrading them.
+- Dependencies and the Docker image are pinned intentionally and verified to match in CI. Review release notes before upgrading them.
 - Read [SECURITY.md](SECURITY.md) before reporting a vulnerability.
 
 ## Contributing
 
-Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), follow the [Code of Conduct](CODE_OF_CONDUCT.md), and run:
+Issues and pull requests are welcome! Check the [open issues](https://www.google.com/search?q=https://github.com/aaserag1/SmartCore-LLM-Proxy/issues) for `good first issue` tasks, read [CONTRIBUTING.md](https://www.google.com/search?q=CONTRIBUTING.md), follow the [Code of Conduct](https://www.google.com/search?q=CODE_OF_CONDUCT.md), and run:
 
 ```bash
 python -m pip install -r requirements-dev.txt
@@ -172,6 +198,6 @@ python scripts/check_config.py config.yaml
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Released under the [MIT License](https://www.google.com/search?q=LICENSE).
 
 Created by Ahmed Adel (Abo Adel) and open to community contributions.
