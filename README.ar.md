@@ -7,11 +7,12 @@
 ## المميزات
 
 - رابط OpenAI موحّد يعمل مع Hermes AI وOpen WebUI والبرامج الخلفية.
-- إعادة محاولات وفترة تهدئة وتحويل تلقائي إلى مزود احتياطي.
+- إعادة محاولات، مهلة زمنية ذكية (`timeout`)، وتحويل تلقائي عند امتلاء السياق أو تعطل المزود (`smart-core` للمهام السريعة و`smart-reasoning` للتفكير العميق).
 - قراءة المفاتيح من متغيرات البيئة بدل تخزينها في `config.yaml`.
+- تهيئة تلقائية لملف `.env` وتوليد مفتاح البوابة عبر `--init`، وأداة تشخيص مدمجة عبر `--doctor`.
 - حماية البوابة بمفتاح رئيسي وربطها بالجهاز المحلي افتراضيًا.
-- تشغيل على Windows وmacOS وLinux أو Docker Compose.
-- فحص تلقائي للإعدادات واختبارات عبر GitHub Actions.
+- تشغيل على Windows وmacOS وLinux أو Docker Compose مع توحيد إصدار LiteLLM تلقائياً.
+- فحص تلقائي للإعدادات واختبارات شاملة عبر GitHub Actions.
 
 المشروع يحسن الاستمرارية لكنه لا يضمن عمل الخدمة بنسبة 100%، لأن التوفر يعتمد أيضًا على الشبكة وحسابات المزودين وحدود الاستخدام.
 
@@ -46,37 +47,32 @@ python -m pip install -r requirements.txt
 
 ### 2. إعداد المفاتيح
 
-انسخ ملف المثال:
-
-```powershell
-# Windows PowerShell
-Copy-Item .env.example .env
-```
+هيّئ ملف `.env` وولّد مفتاح `LITELLM_MASTER_KEY` تلقائياً بأمر واحد:
 
 ```bash
-# macOS / Linux
-cp .env.example .env
+python scripts/start_proxy.py --init
 ```
 
-أضف القيم التالية داخل `.env`:
+ثم افتح ملف `.env` وأضف مفاتيح المزودين:
 
 - `GEMINI_API_KEY`: مفتاح Google AI Studio.
 - `DEEPSEEK_API_KEY`: مفتاح DeepSeek.
-- `LITELLM_MASTER_KEY`: مفتاح خاص بالبوابة يبدأ بـ `sk-`.
-
-يمكن توليد مفتاح قوي للبوابة بالأمر:
-
-```bash
-python -c "import secrets; print('sk-' + secrets.token_urlsafe(32))"
-```
+- `LITELLM_MASTER_KEY`: مفتاح البوابة الرئيسي (يتم توليده تلقائياً عند تشغيل `--init`).
 
 لا ترفع ملف `.env` أو أي مفتاح حقيقي إلى GitHub.
 
-### 3. الفحص والتشغيل
+### 3. الفحص والتشخيص والتشغيل
 
 ```bash
 python scripts/start_proxy.py --check-only
+python scripts/start_proxy.py --doctor
 python scripts/start_proxy.py
+```
+
+وإذا كنت تملك مفتاح مزود واحد فقط حالياً، يمكنك التشغيل باستخدام:
+
+```bash
+python scripts/start_proxy.py --allow-partial-providers
 ```
 
 على Windows يمكنك أيضًا تشغيل:
@@ -91,15 +87,18 @@ python scripts/start_proxy.py
 ./run.sh
 ```
 
-### 4. ربط Hermes AI
+### 4. ربط Hermes AI أو Open WebUI
 
 | الإعداد | القيمة |
 | --- | --- |
 | Base URL | `http://127.0.0.1:4000/v1` |
 | API key | قيمة `LITELLM_MASTER_KEY` |
-| Model | `smart-core` |
+| Model | `smart-core` (سريع) أو `smart-reasoning` (تفكير عميق) |
 
-يستخدم `smart-core` نموذج Gemini 2.5 Flash أولًا، ثم ينتقل إلى `deepseek-chat` عند فشل المحاولات القابل لإعادة المحاولة.
+| اسم النموذج في البوابة | النموذج الأساسي | النموذج الاحتياطي (Fallback) | الاستخدام الأنسب |
+| --- | --- | --- | --- |
+| `smart-core` | `gemini/gemini-2.5-flash` | `deepseek/deepseek-chat` | المحادثات اليومية والبرمجة السريعة |
+| `smart-reasoning` | `gemini/gemini-2.5-pro` | `deepseek/deepseek-reasoner` | التحليل المعقد والتفكير العميق |
 
 ## التشغيل عبر Docker
 
@@ -114,7 +113,7 @@ docker compose logs -f smartcore
 docker compose down
 ```
 
-## تخصيص النماذج
+## تخصيص النماذج والتشخيص
 
 عدّل `config.yaml`، واجعل أي مفتاح سري مرجعًا بالشكل:
 
@@ -122,12 +121,13 @@ docker compose down
 api_key: os.environ/MY_PROVIDER_API_KEY
 ```
 
-النماذج التي تحمل `model_name` نفسه تدخل في مجموعة موازنة تحميل واحدة. ويمكن وضع مجموعة مختلفة ضمن `router_settings.fallbacks` لتعمل كبديل.
+النماذج التي تحمل `model_name` نفسه تدخل في مجموعة موازنة تحميل واحدة. ويمكن وضع مجموعة مختلفة ضمن `router_settings.fallbacks` أو `router_settings.context_window_fallbacks` لتعمل كبديل.
 
 بعد كل تعديل شغّل:
 
 ```bash
 python scripts/check_config.py config.yaml
+python scripts/doctor.py
 ```
 
 للمساهمة اقرأ [CONTRIBUTING.md](CONTRIBUTING.md)، وللإبلاغ الأمني اقرأ [SECURITY.md](SECURITY.md).
