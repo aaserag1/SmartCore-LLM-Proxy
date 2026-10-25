@@ -1,12 +1,41 @@
 # SmartCore LLM Proxy
 
+[](https://github.com/aaserag1/SmartCore-LLM-Proxy/actions/workflows/ci.yml)
+[License: MIT](https://www.google.com/search?q=LICENSE)
+[](https://www.python.org/)
+[PRs Welcome](https://www.google.com/search?q=CONTRIBUTING.md)
+
 بوابة محلية متوافقة مع OpenAI توحّد الوصول إلى نماذج الذكاء الاصطناعي عبر LiteLLM، وتعيد المحاولة عند الأخطاء المؤقتة، ثم تنتقل تلقائيًا من Gemini إلى DeepSeek من دون تغيير إعدادات التطبيق.
 
 > [English documentation](README.md)
 
+## مخطط عمل البوابة (Architecture)
+
+```mermaid
+flowchart LR
+    Client["التطبيق العميل\n(Hermes AI / Open WebUI / Cline)"]
+    Gateway["بوابة SmartCore\nhttp://127.0.0.1:4000/v1"]
+
+    subgraph FastRoute ["مسار السرعة: smart-core"]
+        GFlash["الأساسي: Gemini 2.5 Flash"]
+        DSChat["البديل: DeepSeek Chat"]
+        GFlash -->|"عند الخطأ أو انتهاء الحصة"| DSChat
+    end
+
+    subgraph ReasonRoute ["مسار التفكير: smart-reasoning"]
+        GPro["الأساسي: Gemini 2.5 Pro"]
+        DSReason["البديل: DeepSeek Reasoner"]
+        GPro -->|"عند الخطأ أو انتهاء الحصة"| DSReason
+    end
+
+    Client -->|"مفتاح البوابة الموحد"| Gateway
+    Gateway --> FastRoute
+    Gateway --> ReasonRoute
+```
+
 ## المميزات
 
-- رابط OpenAI موحّد يعمل مع Hermes AI وOpen WebUI والبرامج الخلفية.
+- رابط OpenAI موحّد يعمل مع Hermes AI وOpen WebUI وإضافات البرمجة مثل Cline وContinue.dev والبرامج الخلفية.
 - إعادة محاولات، مهلة زمنية ذكية (`timeout`)، وتحويل تلقائي عند امتلاء السياق أو تعطل المزود (`smart-core` للمهام السريعة و`smart-reasoning` للتفكير العميق).
 - قراءة المفاتيح من متغيرات البيئة بدل تخزينها في `config.yaml`.
 - تهيئة تلقائية لملف `.env` وتوليد مفتاح البوابة عبر `--init`، وأداة تشخيص مدمجة عبر `--doctor`.
@@ -87,7 +116,7 @@ python scripts/start_proxy.py --allow-partial-providers
 ./run.sh
 ```
 
-### 4. ربط Hermes AI أو Open WebUI
+### 4. ربط Hermes AI أو Open WebUI أو Cline
 
 | الإعداد | القيمة |
 | --- | --- |
@@ -130,10 +159,10 @@ python scripts/check_config.py config.yaml
 python scripts/doctor.py
 ```
 
-للمساهمة اقرأ [CONTRIBUTING.md](CONTRIBUTING.md)، وللإبلاغ الأمني اقرأ [SECURITY.md](SECURITY.md).
+للمساهمة اقرأ [CONTRIBUTING.md](https://www.google.com/search?q=CONTRIBUTING.md)، وللإبلاغ الأمني اقرأ [SECURITY.md](SECURITY.md).
 
 ## الترخيص
 
-المشروع متاح تحت [رخصة MIT](LICENSE).
+المشروع متاح تحت [رخصة MIT](https://www.google.com/search?q=LICENSE).
 
 تطوير أحمد عادل (أبو عادل)، والمساهمات المجتمعية مرحب بها.
