@@ -7,7 +7,7 @@
 
 An OpenAI-compatible local gateway that routes LLM requests through LiteLLM, retries transient failures, and falls back from Gemini to DeepSeek without changing your application's API integration.
 
-> اقرأ [الدليل العربي](https://www.google.com/search?q=README.ar.md).
+> اقرأ [الدليل العربي](https://www.google.com/search?q=READMEAR.md).
 
 ## Architecture & Routing Flow
 
